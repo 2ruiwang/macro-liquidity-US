@@ -18,40 +18,48 @@ hyg_series = fetch_hyg_price()
 metrics = {}
 
 try:
-    # WALCL
-    walcl_val = fred_data["WALCL"].iloc[-1]["value"] / 1e6
-    score, comment = score_walcl(walcl_val)
-    metrics["WALCL"] = (f"{walcl_val:.1f}T", score, comment)
+    def safe_last(series, divide_by=1):
+        if series is not None and not series.empty:
+            return float(series["value"].astype(float).iloc[-1]) / divide_by
+        return None
 
-    # TGA
-    tga_val = fred_data["TGA"].iloc[-1]["value"] / 1e3
-    score, comment = score_tga(tga_val)
-    metrics["TGA"] = (f"{tga_val:.0f}B", score, comment)
+    walcl_val = safe_last(fred_data["WALCL"], 1e6)
+    tga_val = safe_last(fred_data["TGA"], 1e3)
+    wresbal_val = safe_last(fred_data["WRESBAL"], 1e6)
+    rrp_val = safe_last(fred_data["RRPONTSYD"], 1e3)
+    sofr_val = safe_last(fred_data["SOFR"], 1)
 
-    # WRESBAL
-    wresbal_val = fred_data["WRESBAL"].iloc[-1]["value"] / 1e6
-    score, comment = score_wresbal(wresbal_val)
-    metrics["WRESBAL"] = (f"{wresbal_val:.1f}T", score, comment)
+    # Score and format each
+    if walcl_val is not None:
+        s, c = score_walcl(walcl_val)
+        metrics["WALCL"] = (f"{walcl_val:.1f}T", s, c)
 
-    # RRPONTSYD
-    rrp_val = fred_data["RRPONTSYD"].iloc[-1]["value"] / 1e3
-    score, comment = score_rrp(rrp_val)
-    metrics["RRPONTSYD"] = (f"{rrp_val:.0f}B", score, comment)
+    if tga_val is not None:
+        s, c = score_tga(tga_val)
+        metrics["TGA"] = (f"{tga_val:.0f}B", s, c)
 
-    # SOFR
-    sofr_val = fred_data["SOFR"].iloc[-1]["value"]
-    score, comment = score_sofr(sofr_val)
-    metrics["SOFR"] = (f"{sofr_val:.2f}%", score, comment)
+    if wresbal_val is not None:
+        s, c = score_wresbal(wresbal_val)
+        metrics["WRESBAL"] = (f"{wresbal_val:.1f}T", s, c)
 
-    # HYG Trend
+    if rrp_val is not None:
+        s, c = score_rrp(rrp_val)
+        metrics["RRPONTSYD"] = (f"{rrp_val:.0f}B", s, c)
+
+    if sofr_val is not None:
+        s, c = score_sofr(sofr_val)
+        metrics["SOFR"] = (f"{sofr_val:.2f}%", s, c)
+
     if hyg_series is not None and len(hyg_series) >= 6:
-        hyg_change_5d = (hyg_series.iloc[-1] - hyg_series.iloc[-6]) / hyg_series.iloc[-6] * 100
-        score, comment = score_hyg_trend(hyg_change_5d)
-        metrics["HYG"] = (f"{hyg_series.iloc[-1]:.2f} ({hyg_change_5d:+.1f}%)", score, comment)
+        hyg_change = (hyg_series.iloc[-1] - hyg_series.iloc[-6]) / hyg_series.iloc[-6] * 100
+        s, c = score_hyg_trend(hyg_change)
+        metrics["HYG"] = (f"{hyg_series.iloc[-1]:.2f} ({hyg_change:+.1f}%)", s, c)
     else:
         metrics["HYG"] = ("N/A", 0, "Not enough data for HYG trend.")
+
 except Exception as e:
     st.error(f"Error processing data: {e}")
+
 
 # Tier layout
 tier_map = {
